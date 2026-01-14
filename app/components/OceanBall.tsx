@@ -1,3 +1,7 @@
+'use client';
+
+import { useTaskStore } from '../store/taskStore';
+
 interface OceanBallProps {
   task: {
     id: string;
@@ -16,6 +20,8 @@ interface OceanBallProps {
 }
 
 export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDoubleClick }: OceanBallProps) {
+  const setSelectedTask = useTaskStore((s) => s.setSelectedTask);
+
   return (
     <div
       style={{
@@ -27,7 +33,10 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
       }}
       onMouseDown={(e) => onMouseDown(e, task.id)}
       onMouseUp={(e) => onMouseUp(e, task.id)}
-      onClick={(e) => onClick(e, task.id)}
+      onClick={(e) => {
+        onClick(e, task.id);
+        setSelectedTask(task);
+      }}
       onDoubleClick={() => onDoubleClick(task.id)}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -41,11 +50,11 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
         <g clipPath={`url(#clip-${task.id})`}>
           <rect
             x="0"
-            y={task.radius * 2 - (task.radius * 2 * task.progress / 100)}
+            y="0"
             width={task.radius * 2}
-            height={task.radius * 2 * task.progress / 100}
-            fill="#4299e1"
-            opacity="0.6"
+            height={task.radius * 2 - (task.radius * 2 * task.progress / 100)}
+            fill="white"
+            opacity="0.3"
           />
         </g>
         <circle cx={task.radius} cy={task.radius} r={task.radius} fill="none" stroke="white" strokeWidth="2" opacity="0.5" />

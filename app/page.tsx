@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import OceanBall from './components/OceanBall';
-import TaskPanel from './components/TaskPanel';
+import TaskDrawer from './components/TaskDrawer';
 import { useDateTime } from './hooks/useDateTime';
+import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
 import { PHYSICS, RIPPLE, CLICK_THRESHOLD } from './constants';
 
 export default function Home() {
   const { currentTime, currentDate } = useDateTime();
+  const { tasks, setTasks } = useTaskStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -21,16 +22,38 @@ export default function Home() {
   const animationRef = useRef<number>();
 
   useEffect(() => {
-    setTasks(createDefaultTasks());
-  }, []);
+    const saved = localStorage.getItem('ocean-ball-tasks');
+    if (saved && saved !== 'undefined') {
+      try {
+        const savedTasks = JSON.parse(saved);
+        const container = containerRef.current;
+        const bounds = container?.getBoundingClientRect();
+        const width = bounds?.width || 1200;
+
+        const tasksWithPhysics = savedTasks.map((task: any) => ({
+          ...task,
+          x: task.x || Math.random() * width,
+          y: task.y || 100,
+          vx: task.vx || 0,
+          vy: task.vy || 0,
+        }));
+        setTasks(tasksWithPhysics, false);
+      } catch {
+        localStorage.removeItem('ocean-ball-tasks');
+        setTasks(createDefaultTasks());
+      }
+    } else {
+      setTasks(createDefaultTasks());
+    }
+  }, [setTasks]);
 
   useEffect(() => {
     const animate = () => {
-      setTasks(prev => {
-        const container = containerRef.current;
-        if (!container) return prev;
-        const bounds = container.getBoundingClientRect();
+      const container = containerRef.current;
+      if (!container) return;
+      const bounds = container.getBoundingClientRect();
 
+      setTasks(prev => {
         return prev.map(task => {
           if (draggedTask === task.id) return task;
 
@@ -82,7 +105,7 @@ export default function Home() {
           }
           return task;
         }).filter(task => task.progress < 100);
-      });
+      }, false);
       animationRef.current = requestAnimationFrame(animate);
     };
     animationRef.current = requestAnimationFrame(animate);
@@ -161,6 +184,8 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
+      <TaskDrawer />
+
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <div className="text-9xl font-bold text-gray-300/50 dark:text-gray-600/50">{currentTime}</div>
         <div className="text-3xl font-medium text-gray-300/40 dark:text-gray-600/40 mt-4">{currentDate}</div>
@@ -180,7 +205,6 @@ export default function Home() {
         <div className="border-r-2 border-dashed border-blue-300/40 h-full"></div>
       </div>
 
-      <TaskPanel tasks={tasks} selectedTaskId={contextMenu} onSelectTask={setContextMenu} />
 
       <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         <div className="w-6 h-5 flex flex-col justify-between">
