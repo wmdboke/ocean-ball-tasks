@@ -43,6 +43,25 @@ export default function TaskDrawer() {
     }
   };
 
+  const deleteMilestone = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (selectedTask) {
+      const updatedMilestones = selectedTask.milestones.filter((_, i) => i !== index);
+      const completedCount = updatedMilestones.filter(m => m.completed).length;
+      const progress = updatedMilestones.length > 0
+        ? Math.round((completedCount / updatedMilestones.length) * 100)
+        : 0;
+      updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
+    }
+  };
+
+  const handleArchive = () => {
+    if (selectedTask) {
+      updateTask(selectedTask.id, { progress: 101 });
+      setSelectedTask(null);
+    }
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -98,6 +117,9 @@ export default function TaskDrawer() {
                 </svg>
               </button>
             </div>
+            <div className="px-6 pb-4 text-xs text-gray-500 dark:text-gray-400">
+              创建于 {new Date(selectedTask.createdAt).toLocaleString('zh-CN')}
+            </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
@@ -105,7 +127,17 @@ export default function TaskDrawer() {
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">进度</span>
-                  <span className="text-sm font-semibold text-blue-600">{selectedTask.progress}%</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-blue-600">{selectedTask.progress}%</span>
+                    {selectedTask.progress >= 100 && (
+                      <button
+                        onClick={handleArchive}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded transition-colors"
+                      >
+                        归档
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div
@@ -122,13 +154,19 @@ export default function TaskDrawer() {
                 </h3>
                 <div className="space-y-3 mb-4">
                   {selectedTask.milestones.map((milestone, idx) => (
-                    <div key={idx} className="flex items-start gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors" onClick={() => toggleMilestone(idx)}>
-                      <div className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center ${milestone.completed ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                    <div key={idx} className="flex items-start gap-3 group hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors">
+                      <div className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${milestone.completed ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} onClick={() => toggleMilestone(idx)}>
                         {milestone.completed && <span className="text-white text-xs">✓</span>}
                       </div>
-                      <span className={`text-sm ${milestone.completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                      <span className={`text-sm flex-1 cursor-pointer ${milestone.completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`} onClick={() => toggleMilestone(idx)}>
                         {milestone.text}
                       </span>
+                      <button
+                        onClick={(e) => deleteMilestone(idx, e)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-sm"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>

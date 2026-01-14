@@ -12,6 +12,8 @@ export interface Task {
   color: string;
   title: string;
   density: number;
+  createdAt: string;
+  completedAt?: string;
 }
 
 export function createTask(title: string, x: number): Task {
@@ -29,6 +31,7 @@ export function createTask(title: string, x: number): Task {
     color: BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)],
     title,
     density,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -53,6 +56,7 @@ export function createDefaultTasks(): Task[] {
       color: BALL_COLORS[i],
       title,
       density,
+      createdAt: new Date().toISOString(),
     };
   });
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import OceanBall from './components/OceanBall';
 import TaskDrawer from './components/TaskDrawer';
+import ArchiveList from './components/ArchiveList';
 import { useDateTime } from './hooks/useDateTime';
 import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
@@ -12,6 +13,7 @@ export default function Home() {
   const { currentTime, currentDate } = useDateTime();
   const { tasks, setTasks } = useTaskStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -104,7 +106,7 @@ export default function Home() {
             }
           }
           return task;
-        }).filter(task => task.progress < 100);
+        }).filter(task => task.progress <= 100);
       }, false);
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -185,6 +187,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
       <TaskDrawer />
+      {showArchive && <ArchiveList onClose={() => setShowArchive(false)} />}
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <div className="text-9xl font-bold text-gray-300/50 dark:text-gray-600/50">{currentTime}</div>
@@ -219,7 +222,7 @@ export default function Home() {
           <div className="fixed inset-0 z-30" onClick={() => setIsMenuOpen(false)} />
           <div className="fixed top-16 left-4 z-40 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
             <button onClick={() => { setShowAddDialog(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700">新增任务球</button>
-            <button onClick={() => { alert('归档记录'); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">归档记录</button>
+            <button onClick={() => { setShowArchive(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">归档记录</button>
           </div>
         </>
       )}

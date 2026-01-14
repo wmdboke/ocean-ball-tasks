@@ -20,7 +20,12 @@ interface OceanBallProps {
 }
 
 export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDoubleClick }: OceanBallProps) {
-  const setSelectedTask = useTaskStore((s) => s.setSelectedTask);
+  const { setSelectedTask, updateTask } = useTaskStore();
+
+  const handleComplete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask(task.id, { progress: 101 });
+  };
 
   return (
     <div
@@ -57,6 +62,19 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
             opacity="0.3"
           />
         </g>
+        {task.progress >= 100 && (
+          <circle
+            cx={task.radius}
+            cy={task.radius}
+            r={task.radius + 4}
+            fill="none"
+            stroke={task.color}
+            strokeWidth="3"
+            opacity="0.8"
+            className="cursor-pointer"
+            onClick={handleComplete}
+          />
+        )}
         <circle cx={task.radius} cy={task.radius} r={task.radius} fill="none" stroke="white" strokeWidth="2" opacity="0.5" />
         <text x={task.radius} y={task.radius - 8} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="24" fontWeight="bold">
           {task.title.charAt(0)}
