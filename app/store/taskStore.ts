@@ -10,6 +10,15 @@ interface TaskStore {
   updateTask: (taskId: string, updates: Partial<Task>) => void;
 }
 
+let saveTimeout: NodeJS.Timeout | null = null;
+const debouncedSave = (tasks: Task[]) => {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const tasksToSave = tasks.map(({ x, y, vx, vy, ...rest }) => rest);
+    localStorage.setItem('ocean-ball-tasks', JSON.stringify(tasksToSave));
+  }, 1000);
+};
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   selectedTask: null,
   tasks: [],
@@ -21,19 +30,18 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const newTasks = typeof tasks === 'function' ? tasks(get().tasks) : tasks;
     set({ tasks: newTasks });
     if (persist && typeof window !== 'undefined') {
-      const tasksToSave = newTasks.map(({ x, y, vx, vy, ...rest }) => rest);
-      localStorage.setItem('ocean-ball-tasks', JSON.stringify(tasksToSave));
+      debouncedSave(newTasks);
     }
   },
   updateTask: (taskId, updates) => {
     const tasks = get().tasks.map(t => t.id === taskId ? { ...t, ...updates } : t);
 
-    // 如果进度设置为 101，归档任务并记录完成时间
     if (updates.progress === 101) {
       const archivedTask = tasks.find(t => t.id === taskId);
-      if (archivedTask) {
+      const existingArchived = get().archivedTasks;
+      if (archivedTask && !existingArchived.find(t => t.id === taskId)) {
         const taskWithCompletedTime = { ...archivedTask, completedAt: new Date().toISOString() };
-        const archivedTasks = [...get().archivedTasks, taskWithCompletedTime];
+        const archivedTasks = [...existingArchived, taskWithCompletedTime];
         set({ archivedTasks });
         if (typeof window !== 'undefined') {
           localStorage.setItem('ocean-ball-archived', JSON.stringify(archivedTasks));
@@ -43,8 +51,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     set({ tasks });
     if (typeof window !== 'undefined') {
-      const tasksToSave = tasks.map(({ x, y, vx, vy, ...rest }) => rest);
-      localStorage.setItem('ocean-ball-tasks', JSON.stringify(tasksToSave));
+      debouncedSave(tasks);
     }
     const selectedTask = get().selectedTask;
     if (selectedTask?.id === taskId) {

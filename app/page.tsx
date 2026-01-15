@@ -8,6 +8,7 @@ import { useDateTime } from './hooks/useDateTime';
 import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
 import { PHYSICS, RIPPLE, CLICK_THRESHOLD } from './constants';
+import { SpatialGrid } from './utils/spatialGrid';
 
 export default function Home() {
   const { currentTime, currentDate } = useDateTime();
@@ -21,7 +22,10 @@ export default function Home() {
   const [mouseDownInfo, setMouseDownInfo] = useState<{ taskId: string; x: number; y: number; time: number } | null>(null);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
+  const spatialGridRef = useRef(new SpatialGrid());
+  const physicsStateRef = useRef<Task[]>([]);
+  const [, forceUpdate] = useState({});
 
   useEffect(() => {
     const saved = localStorage.getItem('ocean-ball-tasks');
@@ -39,75 +43,104 @@ export default function Home() {
           vx: task.vx || 0,
           vy: task.vy || 0,
         }));
+        physicsStateRef.current = tasksWithPhysics;
         setTasks(tasksWithPhysics, false);
       } catch {
         localStorage.removeItem('ocean-ball-tasks');
-        setTasks(createDefaultTasks());
+        const defaultTasks = createDefaultTasks();
+        physicsStateRef.current = defaultTasks;
+        setTasks(defaultTasks);
       }
     } else {
-      setTasks(createDefaultTasks());
+      const defaultTasks = createDefaultTasks();
+      physicsStateRef.current = defaultTasks;
+      setTasks(defaultTasks);
     }
   }, [setTasks]);
 
   useEffect(() => {
+    physicsStateRef.current = physicsStateRef.current.map(physicsTask => {
+      const storeTask = tasks.find(t => t.id === physicsTask.id);
+      return storeTask ? { ...storeTask, x: physicsTask.x, y: physicsTask.y, vx: physicsTask.vx, vy: physicsTask.vy } : physicsTask;
+    });
+  }, [tasks]);
+
+  useEffect(() => {
+    let frameCount = 0;
     const animate = () => {
       const container = containerRef.current;
       if (!container) return;
       const bounds = container.getBoundingClientRect();
 
-      setTasks(prev => {
-        return prev.map(task => {
-          if (draggedTask === task.id) return task;
+      const prev = physicsStateRef.current;
+      const updated = prev.map(task => {
+        if (draggedTask === task.id) return task;
 
-          let { x, y, vx, vy } = task;
-          const targetY = bounds.height * task.density;
-          const restoreForce = -(y - targetY) * PHYSICS.RESTORE_FORCE;
+        let { x, y, vx, vy } = task;
+        const targetY = bounds.height * task.density;
+        const restoreForce = -(y - targetY) * PHYSICS.RESTORE_FORCE;
 
-          vy += restoreForce;
-          vx *= PHYSICS.AIR_RESISTANCE;
-          vy *= PHYSICS.AIR_RESISTANCE;
-          x += vx;
-          y += vy;
+        vy += restoreForce;
+        vx *= PHYSICS.AIR_RESISTANCE;
+        vy *= PHYSICS.AIR_RESISTANCE;
+        x += vx;
+        y += vy;
 
-          // Bounce off walls
-          if (x - task.radius < 0) { x = task.radius; vx = Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
-          if (x + task.radius > bounds.width) { x = bounds.width - task.radius; vx = -Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
-          if (y + task.radius > bounds.height) { y = bounds.height - task.radius; vy = -Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; vx *= PHYSICS.FRICTION; }
-          if (y - task.radius < 0) { y = task.radius; vy = Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; }
+        if (x - task.radius < 0) { x = task.radius; vx = Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
+        if (x + task.radius > bounds.width) { x = bounds.width - task.radius; vx = -Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
+        if (y + task.radius > bounds.height) { y = bounds.height - task.radius; vy = -Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; vx *= PHYSICS.FRICTION; }
+        if (y - task.radius < 0) { y = task.radius; vy = Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; }
 
-          return { ...task, x, y, vx, vy };
-        }).map((task, i, arr) => {
-          // Collision detection
-          for (let j = i + 1; j < arr.length; j++) {
-            const other = arr[j];
-            const dx = other.x - task.x;
-            const dy = other.y - task.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const minDist = task.radius + other.radius;
+        return { ...task, x, y, vx, vy };
+      });
 
-            if (dist < minDist) {
-              const angle = Math.atan2(dy, dx);
-              const overlap = minDist - dist;
-              task.x -= Math.cos(angle) * overlap / 2;
-              task.y -= Math.sin(angle) * overlap / 2;
-              other.x += Math.cos(angle) * overlap / 2;
-              other.y += Math.sin(angle) * overlap / 2;
+      const grid = spatialGridRef.current;
+      grid.clear();
+      updated.forEach(task => grid.insert(task));
 
-              const dvx = other.vx - task.vx;
-              const dvy = other.vy - task.vy;
-              const dvDotD = dvx * dx + dvy * dy;
-              if (dvDotD < 0) {
-                const impulse = dvDotD / (dist * dist);
-                task.vx += impulse * dx * PHYSICS.COLLISION_DAMPING;
-                task.vy += impulse * dy * PHYSICS.COLLISION_DAMPING;
-                other.vx -= impulse * dx * PHYSICS.COLLISION_DAMPING;
-                other.vy -= impulse * dy * PHYSICS.COLLISION_DAMPING;
-              }
+      updated.forEach(task => {
+        const nearby = grid.getNearby(task);
+        nearby.forEach(other => {
+          if (task.id === other.id) return;
+          const dx = other.x - task.x;
+          const dy = other.y - task.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = task.radius + other.radius;
+
+          if (dist < minDist && dist > 0) {
+            const angle = Math.atan2(dy, dx);
+            const overlap = minDist - dist;
+            task.x -= Math.cos(angle) * overlap / 2;
+            task.y -= Math.sin(angle) * overlap / 2;
+            other.x += Math.cos(angle) * overlap / 2;
+            other.y += Math.sin(angle) * overlap / 2;
+
+            const dvx = other.vx - task.vx;
+            const dvy = other.vy - task.vy;
+            const dvDotD = dvx * dx + dvy * dy;
+            if (dvDotD < 0) {
+              const impulse = dvDotD / (dist * dist);
+              task.vx += impulse * dx * PHYSICS.COLLISION_DAMPING;
+              task.vy += impulse * dy * PHYSICS.COLLISION_DAMPING;
+              other.vx -= impulse * dx * PHYSICS.COLLISION_DAMPING;
+              other.vy -= impulse * dy * PHYSICS.COLLISION_DAMPING;
             }
           }
-          return task;
-        }).filter(task => task.progress <= 100);
-      }, false);
+        });
+      });
+
+      const filtered = updated.filter(task => task.progress <= 100);
+      physicsStateRef.current = filtered;
+
+      if (filtered.length !== prev.length) {
+        setTasks(filtered);
+      }
+
+      frameCount++;
+      if (frameCount % 2 === 0) {
+        forceUpdate({});
+      }
+
       animationRef.current = requestAnimationFrame(animate);
     };
     animationRef.current = requestAnimationFrame(animate);
@@ -119,6 +152,7 @@ export default function Home() {
     const container = containerRef.current;
     const width = container ? container.getBoundingClientRect().width : 800;
     const newTask = createTask(newTaskTitle, Math.random() * (width - 200) + 100);
+    physicsStateRef.current = [...physicsStateRef.current, newTask];
     setTasks(prev => [...prev, newTask]);
     setNewTaskTitle('');
     setShowAddDialog(false);
@@ -136,11 +170,16 @@ export default function Home() {
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggedTask && containerRef.current) {
       const bounds = containerRef.current.getBoundingClientRect();
-      setTasks(prev => prev.map(t => t.id === draggedTask ? { ...t, x: e.clientX - bounds.left, y: e.clientY - bounds.top, vx: 0, vy: 0 } : t));
+      const x = e.clientX - bounds.left;
+      const y = e.clientY - bounds.top;
+      physicsStateRef.current = physicsStateRef.current.map(t =>
+        t.id === draggedTask ? { ...t, x, y, vx: 0, vy: 0 } : t
+      );
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent, taskId: string) => {
+    let isClick = false;
     if (mouseDownInfo && mouseDownInfo.taskId === taskId) {
       const dx = e.clientX - mouseDownInfo.x;
       const dy = e.clientY - mouseDownInfo.y;
@@ -148,7 +187,12 @@ export default function Home() {
       const duration = Date.now() - mouseDownInfo.time;
 
       if (distance < CLICK_THRESHOLD.DISTANCE && duration < CLICK_THRESHOLD.TIME) {
-        setContextMenu(taskId);
+        isClick = true;
+        const task = physicsStateRef.current.find(t => t.id === taskId);
+        if (task) {
+          const { setSelectedTask } = useTaskStore.getState();
+          setSelectedTask(task);
+        }
       }
     }
     setDraggedTask(null);
@@ -166,7 +210,7 @@ export default function Home() {
     setRipples(prev => [...prev, { id: rippleId, x: clickX, y: clickY }]);
     setTimeout(() => setRipples(prev => prev.filter(r => r.id !== rippleId)), RIPPLE.DURATION);
 
-    setTasks(prev => prev.map(task => {
+    physicsStateRef.current = physicsStateRef.current.map(task => {
       const dx = task.x - clickX;
       const dy = task.y - clickY;
       const distance = Math.sqrt(dx * dx + dy * dy);
@@ -181,7 +225,7 @@ export default function Home() {
         };
       }
       return task;
-    }));
+    });
   };
 
   return (
@@ -234,16 +278,20 @@ export default function Home() {
             <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-blue-300 ripple-animate" style={{ animationDelay: '0.2s' }} />
           </div>
         ))}
-        {tasks.map(task => (
-          <OceanBall
-            key={task.id}
-            task={task}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onClick={(e) => e.stopPropagation()}
-            onDoubleClick={() => {}}
-          />
-        ))}
+        {tasks.map(task => {
+          const physicsTask = physicsStateRef.current.find(t => t.id === task.id);
+          const displayTask = physicsTask || task;
+          return (
+            <OceanBall
+              key={task.id}
+              task={displayTask}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={() => {}}
+            />
+          );
+        })}
       </div>
 
       {showAddDialog && (

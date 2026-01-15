@@ -1,18 +1,10 @@
 'use client';
 
 import { useTaskStore } from '../store/taskStore';
+import { Task } from '../utils/taskUtils';
 
 interface OceanBallProps {
-  task: {
-    id: string;
-    x: number;
-    y: number;
-    radius: number;
-    color: string;
-    title: string;
-    progress: number;
-    milestones: { text: string; completed: boolean }[];
-  };
+  task: Task;
   onMouseDown: (e: React.MouseEvent, taskId: string) => void;
   onMouseUp: (e: React.MouseEvent, taskId: string) => void;
   onClick: (e: React.MouseEvent, taskId: string) => void;
@@ -20,7 +12,7 @@ interface OceanBallProps {
 }
 
 export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDoubleClick }: OceanBallProps) {
-  const { setSelectedTask, updateTask } = useTaskStore();
+  const { updateTask } = useTaskStore();
 
   const handleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,10 +30,7 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
       }}
       onMouseDown={(e) => onMouseDown(e, task.id)}
       onMouseUp={(e) => onMouseUp(e, task.id)}
-      onClick={(e) => {
-        onClick(e, task.id);
-        setSelectedTask(task);
-      }}
+      onClick={(e) => onClick(e, task.id)}
       onDoubleClick={() => onDoubleClick(task.id)}
       onContextMenu={(e) => e.preventDefault()}
     >
