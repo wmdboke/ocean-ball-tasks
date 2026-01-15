@@ -7,7 +7,7 @@ import ArchiveList from './components/ArchiveList';
 import { useDateTime } from './hooks/useDateTime';
 import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
-import { PHYSICS, RIPPLE, CLICK_THRESHOLD } from './constants';
+import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS } from './constants';
 import { SpatialGrid } from './utils/spatialGrid';
 
 export default function Home() {
@@ -16,7 +16,6 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [mouseDownInfo, setMouseDownInfo] = useState<{ taskId: string; x: number; y: number; time: number } | null>(null);
@@ -25,6 +24,7 @@ export default function Home() {
   const animationRef = useRef<number | undefined>(undefined);
   const spatialGridRef = useRef(new SpatialGrid());
   const physicsStateRef = useRef<Task[]>([]);
+  const physicsMapRef = useRef<Map<string, Task>>(new Map());
   const [, forceUpdate] = useState({});
 
   useEffect(() => {
@@ -44,16 +44,19 @@ export default function Home() {
           vy: task.vy || 0,
         })) as Task[];
         physicsStateRef.current = tasksWithPhysics;
+        physicsMapRef.current = new Map(tasksWithPhysics.map(t => [t.id, t]));
         setTasks(tasksWithPhysics, false);
       } catch {
         localStorage.removeItem('ocean-ball-tasks');
         const defaultTasks = createDefaultTasks();
         physicsStateRef.current = defaultTasks;
+        physicsMapRef.current = new Map(defaultTasks.map(t => [t.id, t]));
         setTasks(defaultTasks);
       }
     } else {
       const defaultTasks = createDefaultTasks();
       physicsStateRef.current = defaultTasks;
+      physicsMapRef.current = new Map(defaultTasks.map(t => [t.id, t]));
       setTasks(defaultTasks);
     }
   }, [setTasks]);
@@ -61,7 +64,9 @@ export default function Home() {
   useEffect(() => {
     physicsStateRef.current = physicsStateRef.current.map(physicsTask => {
       const storeTask = tasks.find(t => t.id === physicsTask.id);
-      return storeTask ? { ...storeTask, x: physicsTask.x, y: physicsTask.y, vx: physicsTask.vx, vy: physicsTask.vy } : physicsTask;
+      const updated = storeTask ? { ...storeTask, x: physicsTask.x, y: physicsTask.y, vx: physicsTask.vx, vy: physicsTask.vy } : physicsTask;
+      physicsMapRef.current.set(updated.id, updated);
+      return updated;
     });
   }, [tasks]);
 
@@ -86,10 +91,15 @@ export default function Home() {
         x += vx;
         y += vy;
 
-        if (x - task.radius < 0) { x = task.radius; vx = Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
-        if (x + task.radius > bounds.width) { x = bounds.width - task.radius; vx = -Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
-        if (y + task.radius > bounds.height) { y = bounds.height - task.radius; vy = -Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; vx *= PHYSICS.FRICTION; }
-        if (y - task.radius < 0) { y = task.radius; vy = Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; }
+        const leftBound = bounds.width * BOUNDS.LEFT;
+        const rightBound = bounds.width * BOUNDS.RIGHT;
+        const topBound = 72;
+        const bottomBound = bounds.height - 64;
+
+        if (x - task.radius < leftBound) { x = leftBound + task.radius; vx = Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
+        if (x + task.radius > rightBound) { x = rightBound - task.radius; vx = -Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
+        if (y + task.radius > bottomBound) { y = bottomBound - task.radius; vy = -Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; vx *= PHYSICS.FRICTION; }
+        if (y - task.radius < topBound) { y = topBound + task.radius; vy = Math.abs(vy) * PHYSICS.BOUNCE_DAMPING; }
 
         return { ...task, x, y, vx, vy };
       });
@@ -129,15 +139,16 @@ export default function Home() {
         });
       });
 
-      const filtered = updated.filter(task => task.progress <= 100);
+      const filtered = updated.filter(task => task.progress <= PROGRESS.MAX);
       physicsStateRef.current = filtered;
+      physicsMapRef.current = new Map(filtered.map(t => [t.id, t]));
 
       if (filtered.length !== prev.length) {
         setTasks(filtered);
       }
 
       frameCount++;
-      if (frameCount % 2 === 0) {
+      if (frameCount % RENDER.FRAME_SKIP === 0) {
         forceUpdate({});
       }
 
@@ -151,8 +162,9 @@ export default function Home() {
     if (!newTaskTitle.trim()) return;
     const container = containerRef.current;
     const width = container ? container.getBoundingClientRect().width : 800;
-    const newTask = createTask(newTaskTitle, Math.random() * (width - 200) + 100);
+    const newTask = createTask(newTaskTitle, Math.random() * (width - TASK_CREATION.PADDING) + TASK_CREATION.OFFSET);
     physicsStateRef.current = [...physicsStateRef.current, newTask];
+    physicsMapRef.current.set(newTask.id, newTask);
     setTasks(prev => [...prev, newTask]);
     setNewTaskTitle('');
     setShowAddDialog(false);
@@ -233,16 +245,30 @@ export default function Home() {
       <TaskDrawer />
       {showArchive && <ArchiveList onClose={() => setShowArchive(false)} />}
 
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-50/50 to-indigo-100/50 dark:from-gray-900/50 dark:to-gray-800/50 backdrop-blur-sm border-b border-blue-300/30 dark:border-gray-700/30">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">Ocean Ball Tasks</div>
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <div className="w-6 h-5 flex flex-col justify-between">
+              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+            </div>
+          </button>
+        </div>
+      </header>
+
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <div className="text-9xl font-bold text-gray-300/50 dark:text-gray-600/50">{currentTime}</div>
         <div className="text-3xl font-medium text-gray-300/40 dark:text-gray-600/40 mt-4">{currentDate}</div>
       </div>
 
       {/* Boundary lines */}
-      <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '10%' }}>
+      <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '72px' }}>
         <div className="border-t-2 border-dashed border-blue-300/40"></div>
       </div>
-      <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '75%' }}>
+      <div className="absolute left-0 right-0 pointer-events-none" style={{ bottom: '64px' }}>
         <div className="border-t-2 border-dashed border-blue-300/40"></div>
       </div>
       <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: '10%' }}>
@@ -253,25 +279,17 @@ export default function Home() {
       </div>
 
 
-      <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <div className="w-6 h-5 flex flex-col justify-between">
-          <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-          <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-          <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-        </div>
-      </button>
-
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-16 left-4 z-40 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+          <div className="fixed top-20 right-6 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
             <button onClick={() => { setShowAddDialog(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700">新增任务球</button>
             <button onClick={() => { setShowArchive(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">归档记录</button>
           </div>
         </>
       )}
 
-      <div ref={containerRef} className="absolute inset-0" onMouseMove={handleMouseMove} onMouseUp={() => { setDraggedTask(null); setMouseDownInfo(null); }} onClick={(e) => { if (e.target === e.currentTarget) { setContextMenu(null); handleBackgroundClick(e); } }}>
+      <div ref={containerRef} className="absolute inset-0" onMouseMove={handleMouseMove} onMouseUp={() => { setDraggedTask(null); setMouseDownInfo(null); }} onClick={(e) => { if (e.target === e.currentTarget) { handleBackgroundClick(e); } }}>
         {ripples.map(ripple => (
           <div key={ripple.id} className="absolute pointer-events-none" style={{ left: ripple.x, top: ripple.y }}>
             <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-blue-400 ripple-animate" />
@@ -279,8 +297,7 @@ export default function Home() {
           </div>
         ))}
         {tasks.map(task => {
-          const physicsTask = physicsStateRef.current.find(t => t.id === task.id);
-          const displayTask = physicsTask || task;
+          const displayTask = physicsMapRef.current.get(task.id) || task;
           return (
             <OceanBall
               key={task.id}
@@ -314,6 +331,18 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-50/50 to-indigo-100/50 dark:from-gray-900/50 dark:to-gray-800/50 backdrop-blur-sm border-t border-blue-300/30 dark:border-gray-700/30">
+        <div className="px-6 py-3 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            © {new Date().getFullYear()} Ocean Ball Tasks - 创新的物理交互式任务管理工具
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            基于物理引擎的可视化任务管理系统 | 让任务管理更有趣
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

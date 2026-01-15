@@ -2,6 +2,7 @@
 
 import { useTaskStore } from '../store/taskStore';
 import { Task } from '../utils/taskUtils';
+import { PROGRESS } from '../constants';
 
 interface OceanBallProps {
   task: Task;
@@ -16,7 +17,7 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
 
   const handleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    updateTask(task.id, { progress: 101 });
+    updateTask(task.id, { progress: PROGRESS.COMPLETE });
   };
 
   return (
@@ -46,12 +47,12 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
             x="0"
             y="0"
             width={task.radius * 2}
-            height={task.radius * 2 - (task.radius * 2 * task.progress / 100)}
+            height={task.radius * 2 - (task.radius * 2 * task.progress / PROGRESS.MAX)}
             fill="white"
             opacity="0.3"
           />
         </g>
-        {task.progress >= 100 && (
+        {task.progress >= PROGRESS.MAX && (
           <circle
             cx={task.radius}
             cy={task.radius}

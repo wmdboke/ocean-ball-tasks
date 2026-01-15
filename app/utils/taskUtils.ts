@@ -1,4 +1,4 @@
-import { BALL_COLORS, BALL, BOUNDS } from '../constants';
+import { BALL_COLORS, BALL, BOUNDS, DENSITY } from '../constants';
 
 export interface Task {
   id: string;
@@ -18,7 +18,7 @@ export interface Task {
 
 export function createTask(title: string, x: number): Task {
   const density = BOUNDS.TOP + Math.random() * (BOUNDS.BOTTOM - BOUNDS.TOP);
-  const radius = BALL.RADIUS * (0.7 + density * 0.6); // Smaller balls float higher (lower density)
+  const radius = BALL.RADIUS * (DENSITY.MIN_MULTIPLIER + density * DENSITY.RANGE_MULTIPLIER);
   return {
     id: Date.now().toString(),
     x,
@@ -43,7 +43,7 @@ export function createDefaultTasks(): Task[] {
 
   return ['任务1', '任务2', '任务3', '任务4', '任务5'].map((title, i) => {
     const density = BOUNDS.TOP + Math.random() * (BOUNDS.BOTTOM - BOUNDS.TOP);
-    const radius = BALL.RADIUS * (0.7 + density * 0.6);
+    const radius = BALL.RADIUS * (DENSITY.MIN_MULTIPLIER + density * DENSITY.RANGE_MULTIPLIER);
     return {
       id: `default-${i}`,
       x: leftBound + Math.random() * effectiveWidth,

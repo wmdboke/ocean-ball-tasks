@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useTaskStore } from '../store/taskStore';
+import { PROGRESS } from '../constants';
+import { calculateProgress } from '../utils/progressUtils';
 
 export default function TaskDrawer() {
   const { selectedTask, setSelectedTask, updateTask } = useTaskStore();
@@ -35,10 +37,7 @@ export default function TaskDrawer() {
       const updatedMilestones = selectedTask.milestones.map((m, i) =>
         i === index ? { ...m, completed: !m.completed } : m
       );
-      const completedCount = updatedMilestones.filter(m => m.completed).length;
-      const progress = updatedMilestones.length > 0
-        ? Math.round((completedCount / updatedMilestones.length) * 100)
-        : 0;
+      const progress = calculateProgress(updatedMilestones);
       updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
     }
   };
@@ -47,17 +46,14 @@ export default function TaskDrawer() {
     e.stopPropagation();
     if (selectedTask) {
       const updatedMilestones = selectedTask.milestones.filter((_, i) => i !== index);
-      const completedCount = updatedMilestones.filter(m => m.completed).length;
-      const progress = updatedMilestones.length > 0
-        ? Math.round((completedCount / updatedMilestones.length) * 100)
-        : 0;
+      const progress = calculateProgress(updatedMilestones);
       updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
     }
   };
 
   const handleArchive = () => {
     if (selectedTask) {
-      updateTask(selectedTask.id, { progress: 101 });
+      updateTask(selectedTask.id, { progress: PROGRESS.COMPLETE });
       setSelectedTask(null);
     }
   };
@@ -129,7 +125,7 @@ export default function TaskDrawer() {
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">进度</span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-blue-600">{selectedTask.progress}%</span>
-                    {selectedTask.progress >= 100 && (
+                    {selectedTask.progress >= PROGRESS.MAX && (
                       <button
                         onClick={handleArchive}
                         className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded transition-colors"

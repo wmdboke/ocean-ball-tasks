@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Task } from '../utils/taskUtils';
+import { PROGRESS } from '../constants';
 
 interface TaskStore {
   selectedTask: Task | null;
@@ -36,7 +37,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   updateTask: (taskId, updates) => {
     const tasks = get().tasks.map(t => t.id === taskId ? { ...t, ...updates } : t);
 
-    if (updates.progress === 101) {
+    if (updates.progress === PROGRESS.COMPLETE) {
       const archivedTask = tasks.find(t => t.id === taskId);
       const existingArchived = get().archivedTasks;
       if (archivedTask && !existingArchived.find(t => t.id === taskId)) {

@@ -9,8 +9,8 @@ export const PHYSICS = {
 } as const;
 
 export const BOUNDS = {
-  TOP: 0.1,
-  BOTTOM: 0.75,
+  TOP: 0.15,
+  BOTTOM: 0.8,
   LEFT: 0.1,
   RIGHT: 0.9,
 } as const;
@@ -29,4 +29,23 @@ export const BALL = {
 export const CLICK_THRESHOLD = {
   DISTANCE: 5,
   TIME: 300,
+} as const;
+
+export const RENDER = {
+  FRAME_SKIP: 2,
+} as const;
+
+export const TASK_CREATION = {
+  PADDING: 200,
+  OFFSET: 100,
+} as const;
+
+export const PROGRESS = {
+  MAX: 100,
+  COMPLETE: 101,
+} as const;
+
+export const DENSITY = {
+  MIN_MULTIPLIER: 0.7,
+  RANGE_MULTIPLIER: 0.6,
 } as const;
