@@ -48,16 +48,14 @@ export default function Home() {
         setTasks(tasksWithPhysics, false);
       } catch {
         localStorage.removeItem('ocean-ball-tasks');
-        const defaultTasks = createDefaultTasks();
-        physicsStateRef.current = defaultTasks;
-        physicsMapRef.current = new Map(defaultTasks.map(t => [t.id, t]));
-        setTasks(defaultTasks);
+        physicsStateRef.current = [];
+        physicsMapRef.current = new Map();
+        setTasks([]);
       }
     } else {
-      const defaultTasks = createDefaultTasks();
-      physicsStateRef.current = defaultTasks;
-      physicsMapRef.current = new Map(defaultTasks.map(t => [t.id, t]));
-      setTasks(defaultTasks);
+      physicsStateRef.current = [];
+      physicsMapRef.current = new Map();
+      setTasks([]);
     }
   }, [setTasks]);
 
