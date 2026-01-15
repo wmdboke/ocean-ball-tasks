@@ -41,7 +41,7 @@ export function createDefaultTasks(): Task[] {
   const rightBound = screenWidth * BOUNDS.RIGHT;
   const effectiveWidth = rightBound - leftBound;
 
-  return ['任务1', '任务2', '任务3', '任务4', '任务5'].map((title, i) => {
+  return ['Task 1', 'Task 2', 'Task 3', 'Task 4', 'Task 5'].map((title, i) => {
     const density = BOUNDS.TOP + Math.random() * (BOUNDS.BOTTOM - BOUNDS.TOP);
     const radius = BALL.RADIUS * (DENSITY.MIN_MULTIPLIER + density * DENSITY.RANGE_MULTIPLIER);
     return {

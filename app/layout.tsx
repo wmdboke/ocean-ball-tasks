@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ocean Ball Tasks - 创新的物理交互式任务管理工具",
-  description: "基于物理引擎的可视化任务管理系统，让任务管理更有趣。通过拖拽海洋球来管理你的任务，支持里程碑追踪、进度管理和任务归档。",
-  keywords: "任务管理,task management,物理引擎,可视化,项目管理,待办事项,todo list",
+  title: "Ocean Ball Tasks - Innovative Physics-Based Task Management",
+  description: "A visual task management system powered by physics engine. Manage your tasks by dragging ocean balls. Features milestone tracking, progress management, and task archiving.",
+  keywords: "task management,physics engine,visual,project management,todo list,productivity,interactive tasks",
   authors: [{ name: "Ocean Ball Tasks" }],
   openGraph: {
-    title: "Ocean Ball Tasks - 创新的物理交互式任务管理工具",
-    description: "基于物理引擎的可视化任务管理系统，让任务管理更有趣",
+    title: "Ocean Ball Tasks - Innovative Physics-Based Task Management",
+    description: "Visual task management system with physics engine - Make task management fun",
     type: "website",
   },
   icons: {
@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

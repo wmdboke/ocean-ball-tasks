@@ -283,8 +283,8 @@ export default function Home() {
         <>
           <div className="fixed inset-0 z-30" onClick={() => setIsMenuOpen(false)} />
           <div className="fixed top-20 right-6 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-            <button onClick={() => { setShowAddDialog(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700">新增任务球</button>
-            <button onClick={() => { setShowArchive(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">归档记录</button>
+            <button onClick={() => { setShowAddDialog(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700">Add Task</button>
+            <button onClick={() => { setShowArchive(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">Archive</button>
           </div>
         </>
       )}
@@ -314,19 +314,19 @@ export default function Home() {
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddDialog(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 text-lg font-semibold">新增任务球</div>
+            <div className="mb-4 text-lg font-semibold">Add New Task</div>
             <input
               type="text"
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="输入任务标题"
+              placeholder="Enter task title"
               className="w-full border rounded px-3 py-2 mb-4 dark:bg-gray-700 dark:border-gray-600"
               onKeyDown={(e) => e.key === 'Enter' && addTask()}
               autoFocus
             />
             <div className="flex gap-2">
-              <button onClick={addTask} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">创建</button>
-              <button onClick={() => { setShowAddDialog(false); setNewTaskTitle(''); }} className="flex-1 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600">取消</button>
+              <button onClick={addTask} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Create</button>
+              <button onClick={() => { setShowAddDialog(false); setNewTaskTitle(''); }} className="flex-1 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
             </div>
           </div>
         </div>
@@ -336,10 +336,10 @@ export default function Home() {
       <footer className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-50/50 to-indigo-100/50 dark:from-gray-900/50 dark:to-gray-800/50 backdrop-blur-sm border-t border-blue-300/30 dark:border-gray-700/30">
         <div className="px-6 py-3 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            © {new Date().getFullYear()} Ocean Ball Tasks - 创新的物理交互式任务管理工具
+            © {new Date().getFullYear()} Ocean Ball Tasks - Innovative Physics-Based Task Management
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-            基于物理引擎的可视化任务管理系统 | 让任务管理更有趣
+            Visual Task Management System with Physics Engine | Make Task Management Fun
           </p>
         </div>
       </footer>

@@ -25,9 +25,9 @@ export default function TaskDrawer() {
 
   const handleAddMilestone = () => {
     if (selectedTask && newMilestone.trim()) {
-      updateTask(selectedTask.id, {
-        milestones: [...selectedTask.milestones, { text: newMilestone.trim(), completed: false }]
-      });
+      const updatedMilestones = [...selectedTask.milestones, { text: newMilestone.trim(), completed: false }];
+      const progress = calculateProgress(updatedMilestones);
+      updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
       setNewMilestone('');
     }
   };
@@ -114,7 +114,7 @@ export default function TaskDrawer() {
               </button>
             </div>
             <div className="px-6 pb-4 text-xs text-gray-500 dark:text-gray-400">
-              创建于 {new Date(selectedTask.createdAt).toLocaleString('zh-CN')}
+              Created at {new Date(selectedTask.createdAt).toLocaleString('en-US')}
             </div>
 
             {/* Content */}
@@ -122,7 +122,7 @@ export default function TaskDrawer() {
               {/* Progress */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">进度</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Progress</span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-blue-600">{selectedTask.progress}%</span>
                     {selectedTask.progress >= PROGRESS.MAX && (
@@ -130,7 +130,7 @@ export default function TaskDrawer() {
                         onClick={handleArchive}
                         className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded transition-colors"
                       >
-                        归档
+                        Archive
                       </button>
                     )}
                   </div>
@@ -146,7 +146,7 @@ export default function TaskDrawer() {
               {/* Milestones */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  里程碑 ({selectedTask.milestones.filter(m => m.completed).length}/{selectedTask.milestones.length})
+                  Milestones ({selectedTask.milestones.filter(m => m.completed).length}/{selectedTask.milestones.length})
                 </h3>
                 <div className="space-y-3 mb-4">
                   {selectedTask.milestones.map((milestone, idx) => (
@@ -174,7 +174,7 @@ export default function TaskDrawer() {
                     value={newMilestone}
                     onChange={(e) => setNewMilestone(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddMilestone()}
-                    placeholder="添加新里程碑..."
+                    placeholder="Add new milestone..."
                     className="flex-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2"
                   />
                   <button
