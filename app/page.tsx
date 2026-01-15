@@ -36,13 +36,13 @@ export default function Home() {
         const bounds = container?.getBoundingClientRect();
         const width = bounds?.width || 1200;
 
-        const tasksWithPhysics = savedTasks.map((task: any) => ({
+        const tasksWithPhysics = savedTasks.map((task: Partial<Task>) => ({
           ...task,
           x: task.x || Math.random() * width,
           y: task.y || 100,
           vx: task.vx || 0,
           vy: task.vy || 0,
-        }));
+        })) as Task[];
         physicsStateRef.current = tasksWithPhysics;
         setTasks(tasksWithPhysics, false);
       } catch {

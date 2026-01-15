@@ -40,7 +40,7 @@ export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDou
             <circle cx={task.radius} cy={task.radius} r={task.radius - 2} />
           </clipPath>
         </defs>
-        <circle cx={task.radius} cy={task.radius} r={task.radius} fill={task.color} opacity="0.9" />
+        <circle cx={task.radius} cy={task.radius} r={task.radius} fill={task.color} opacity="1" />
         <g clipPath={`url(#clip-${task.id})`}>
           <rect
             x="0"
