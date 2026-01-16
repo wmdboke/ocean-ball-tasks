@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 import OceanBall from './components/OceanBall';
 import TaskDrawer from './components/TaskDrawer';
 import ArchiveList from './components/ArchiveList';
@@ -11,6 +13,7 @@ import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUN
 import { SpatialGrid } from './utils/spatialGrid';
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const { currentTime, currentDate } = useDateTime();
   const { tasks, setTasks } = useTaskStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -247,13 +250,43 @@ export default function Home() {
       <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-50/50 to-indigo-100/50 dark:from-gray-900/50 dark:to-gray-800/50 backdrop-blur-sm border-b border-blue-300/30 dark:border-gray-700/30">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">Ocean Ball Tasks</div>
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            <div className="w-6 h-5 flex flex-col justify-between">
-              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-              <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-            </div>
-          </button>
+          <div className="flex items-center gap-3">
+            {status === 'loading' ? (
+              <div className="text-sm text-gray-500">Loading...</div>
+            ) : session ? (
+              <>
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {session.user?.name || session.user?.email}
+                </span>
+                <button
+                  onClick={() => signOut()}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/login">
+                  <button className="px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium">
+                    Login
+                  </button>
+                </Link>
+                <Link href="/auth/signup">
+                  <button className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-md">
+                    Start for Free
+                  </button>
+                </Link>
+              </>
+            )}
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <div className="w-6 h-5 flex flex-col justify-between">
+                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
+              </div>
+            </button>
+          </div>
         </div>
       </header>
 
