@@ -1,14 +1,13 @@
 'use client';
 
-import { useTaskStore } from '../store/taskStore';
+import { Task } from '../utils/taskUtils';
 
 interface ArchiveListProps {
+  archivedTasks: Task[];
   onClose: () => void;
 }
 
-export default function ArchiveList({ onClose }: ArchiveListProps) {
-  const archivedTasks = useTaskStore((s) => s.archivedTasks);
-
+export default function ArchiveList({ archivedTasks, onClose }: ArchiveListProps) {
   // Sort by completedAt in descending order (newest first)
   const sortedArchivedTasks = [...archivedTasks].sort((a, b) => {
     if (!a.completedAt) return 1;

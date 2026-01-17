@@ -1,12 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { useTaskStore } from '../store/taskStore';
 import { taskAPI } from '../services/taskAPI';
 import { PROGRESS } from '../constants';
+import { Task } from '../utils/taskUtils';
 
-export default function TaskDrawer() {
-  const { selectedTask, setSelectedTask, updateTask } = useTaskStore();
+interface TaskDrawerProps {
+  selectedTask: Task | null;
+  setSelectedTask: (task: Task | null) => void;
+  updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
+}
+
+export default function TaskDrawer({ selectedTask, setSelectedTask, updateTask }: TaskDrawerProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [newMilestone, setNewMilestone] = useState('');

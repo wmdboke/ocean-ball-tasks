@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import OceanBall from './components/OceanBall';
@@ -8,15 +8,23 @@ import TaskDrawer from './components/TaskDrawer';
 import ArchiveList from './components/ArchiveList';
 import { UserAvatar } from './components/UserAvatar';
 import { useDateTime } from './hooks/useDateTime';
-import { useTaskStore } from './store/taskStore';
-import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
-import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS, VISUAL_BOUNDS, FLOAT_BOUNDS } from './constants';
+import { Task, apiTaskToTask } from './utils/taskUtils';
+import { taskAPI } from './services/taskAPI';
+import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS, VISUAL_BOUNDS, FLOAT_BOUNDS, BALL_COLORS } from './constants';
 import { SpatialGrid } from './utils/spatialGrid';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const { currentTime, currentDate } = useDateTime();
-  const { tasks, setTasks, loadTasks, createTask: createTaskAPI } = useTaskStore();
+
+  // 状态管理（之前在 Zustand）
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // UI 状态
   const [showArchive, setShowArchive] = useState(false);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -24,12 +32,132 @@ export default function Home() {
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [mouseDownInfo, setMouseDownInfo] = useState<{ taskId: string; x: number; y: number; time: number } | null>(null);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const spatialGridRef = useRef(new SpatialGrid());
   const physicsStateRef = useRef<Task[]>([]);
   const physicsMapRef = useRef<Map<string, Task>>(new Map());
   const [, forceUpdate] = useState({});
+
+  // 加载所有任务（登录时调用）
+  const loadTasks = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const apiTasks = await taskAPI.getTasks();
+      const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+
+      const allTasks = apiTasks.map((apiTask) => {
+        const task = apiTaskToTask(apiTask, screenWidth);
+        task.milestones = (apiTask.milestones || []).map((m: any) => ({
+          id: m.id,
+          text: m.title,
+          completed: m.completed,
+        }));
+        return task;
+      });
+
+      const activeTasks = allTasks.filter(t => !t.archived);
+      const archived = allTasks.filter(t => t.archived);
+
+      setTasks(activeTasks);
+      setArchivedTasks(archived);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      setError((error as Error).message);
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 更新任务
+  const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 准备 API 更新数据
+      const apiUpdates: any = {};
+      if (updates.title !== undefined) apiUpdates.title = updates.title;
+      if (updates.description !== undefined) apiUpdates.description = updates.description;
+      if (updates.dueDate !== undefined) apiUpdates.dueDate = updates.dueDate;
+      if (updates.priority !== undefined) apiUpdates.priority = updates.priority;
+      if (updates.tags !== undefined) apiUpdates.tags = updates.tags;
+      if (updates.progress !== undefined) apiUpdates.progress = updates.progress;
+      if (updates.archived !== undefined) apiUpdates.archived = updates.archived;
+      if (updates.color !== undefined) apiUpdates.color = updates.color;
+      if (updates.density !== undefined) apiUpdates.density = updates.density;
+
+      // 归档逻辑
+      if (updates.progress === PROGRESS.COMPLETE || updates.archived) {
+        apiUpdates.archived = true;
+        apiUpdates.completedAt = new Date().toISOString();
+      }
+
+      // 调用 API
+      if (Object.keys(apiUpdates).length > 0) {
+        await taskAPI.updateTask(taskId, apiUpdates);
+      }
+
+      // 更新本地缓存
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      if (selectedTask?.id === taskId) {
+        setSelectedTask(prev => prev ? { ...prev, ...updates } : null);
+      }
+
+      // 归档时需要重新分类
+      if (apiUpdates.archived) {
+        await loadTasks();
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      setError((error as Error).message);
+      setIsLoading(false);
+    }
+  }, [selectedTask, loadTasks]);
+
+  // 创建任务
+  const createTask = useCallback(async (title: string, x: number, dueDate?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const density = BOUNDS.TOP + Math.random() * (BOUNDS.BOTTOM - BOUNDS.TOP);
+      const color = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
+
+      await taskAPI.createTask({
+        title,
+        dueDate: dueDate || undefined,
+        color,
+        density,
+      });
+
+      await loadTasks();
+      return null;
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      setError((error as Error).message);
+      setIsLoading(false);
+      return null;
+    }
+  }, [loadTasks]);
+
+  // 删除任务
+  const deleteTask = useCallback(async (taskId: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await taskAPI.deleteTask(taskId);
+      await loadTasks();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      setError((error as Error).message);
+      setIsLoading(false);
+    }
+  }, [loadTasks]);
 
   // Load tasks from database when user is authenticated
   useEffect(() => {
@@ -159,11 +287,7 @@ export default function Home() {
     const width = container ? container.getBoundingClientRect().width : 800;
     const x = Math.random() * (width - TASK_CREATION.PADDING) + TASK_CREATION.OFFSET;
 
-    const newTask = await createTaskAPI(newTaskTitle, x, newTaskDueDate || undefined);
-    if (newTask) {
-      physicsStateRef.current = [...physicsStateRef.current, newTask];
-      physicsMapRef.current.set(newTask.id, newTask);
-    }
+    await createTask(newTaskTitle, x, newTaskDueDate || undefined);
 
     setNewTaskTitle('');
     setNewTaskDueDate('');
@@ -201,7 +325,6 @@ export default function Home() {
         isClick = true;
         const task = physicsStateRef.current.find(t => t.id === taskId);
         if (task) {
-          const { setSelectedTask } = useTaskStore.getState();
           setSelectedTask(task);
         }
       }
@@ -241,8 +364,17 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
-      <TaskDrawer />
-      {showArchive && <ArchiveList onClose={() => setShowArchive(false)} />}
+      <TaskDrawer
+        selectedTask={selectedTask}
+        setSelectedTask={setSelectedTask}
+        updateTask={updateTask}
+      />
+      {showArchive && (
+        <ArchiveList
+          archivedTasks={archivedTasks}
+          onClose={() => setShowArchive(false)}
+        />
+      )}
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-50/50 to-indigo-100/50 dark:from-gray-900/50 dark:to-gray-800/50 backdrop-blur-sm border-b border-blue-300/30 dark:border-gray-700/30">
@@ -321,6 +453,7 @@ export default function Home() {
               onMouseUp={handleMouseUp}
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={() => {}}
+              onComplete={(taskId) => updateTask(taskId, { progress: PROGRESS.COMPLETE })}
             />
           );
         })}

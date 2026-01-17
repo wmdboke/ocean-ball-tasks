@@ -1,6 +1,5 @@
 'use client';
 
-import { useTaskStore } from '../store/taskStore';
 import { Task } from '../utils/taskUtils';
 import { PROGRESS } from '../constants';
 
@@ -10,14 +9,13 @@ interface OceanBallProps {
   onMouseUp: (e: React.MouseEvent, taskId: string) => void;
   onClick: (e: React.MouseEvent, taskId: string) => void;
   onDoubleClick: (taskId: string) => void;
+  onComplete: (taskId: string) => void;
 }
 
-export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDoubleClick }: OceanBallProps) {
-  const { updateTask } = useTaskStore();
-
+export default function OceanBall({ task, onMouseDown, onMouseUp, onClick, onDoubleClick, onComplete }: OceanBallProps) {
   const handleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    updateTask(task.id, { progress: PROGRESS.COMPLETE });
+    onComplete(task.id);
   };
 
   return (
