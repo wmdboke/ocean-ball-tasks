@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import OceanBall from './components/OceanBall';
 import TaskDrawer from './components/TaskDrawer';
 import ArchiveList from './components/ArchiveList';
+import { UserAvatar } from './components/UserAvatar';
 import { useDateTime } from './hooks/useDateTime';
 import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
@@ -15,12 +16,12 @@ import { SpatialGrid } from './utils/spatialGrid';
 export default function Home() {
   const { data: session, status } = useSession();
   const { currentTime, currentDate } = useDateTime();
-  const { tasks, setTasks } = useTaskStore();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { tasks, setTasks, loadTasks, createTask: createTaskAPI } = useTaskStore();
   const [showArchive, setShowArchive] = useState(false);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [mouseDownInfo, setMouseDownInfo] = useState<{ taskId: string; x: number; y: number; time: number } | null>(null);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,45 +31,29 @@ export default function Home() {
   const physicsMapRef = useRef<Map<string, Task>>(new Map());
   const [, forceUpdate] = useState({});
 
+  // Load tasks from database when user is authenticated
   useEffect(() => {
-    const saved = localStorage.getItem('ocean-ball-tasks');
-    if (saved && saved !== 'undefined') {
-      try {
-        const savedTasks = JSON.parse(saved);
-        const container = containerRef.current;
-        const bounds = container?.getBoundingClientRect();
-        const width = bounds?.width || 1200;
-
-        const tasksWithPhysics = savedTasks.map((task: Partial<Task>) => ({
-          ...task,
-          x: task.x || Math.random() * width,
-          y: task.y || 100,
-          vx: task.vx || 0,
-          vy: task.vy || 0,
-        })) as Task[];
-        physicsStateRef.current = tasksWithPhysics;
-        physicsMapRef.current = new Map(tasksWithPhysics.map(t => [t.id, t]));
-        setTasks(tasksWithPhysics, false);
-      } catch {
-        localStorage.removeItem('ocean-ball-tasks');
-        physicsStateRef.current = [];
-        physicsMapRef.current = new Map();
-        setTasks([]);
-      }
-    } else {
-      physicsStateRef.current = [];
-      physicsMapRef.current = new Map();
-      setTasks([]);
+    if (status === 'authenticated' && session?.user) {
+      loadTasks();
     }
-  }, [setTasks]);
+  }, [status, session, loadTasks]);
 
+  // Sync tasks with physics state
   useEffect(() => {
-    physicsStateRef.current = physicsStateRef.current.map(physicsTask => {
-      const storeTask = tasks.find(t => t.id === physicsTask.id);
-      const updated = storeTask ? { ...storeTask, x: physicsTask.x, y: physicsTask.y, vx: physicsTask.vx, vy: physicsTask.vy } : physicsTask;
-      physicsMapRef.current.set(updated.id, updated);
-      return updated;
+    // For each task in the store, either update existing physics state or add new one
+    const updatedPhysicsState = tasks.map(storeTask => {
+      const existingPhysics = physicsStateRef.current.find(p => p.id === storeTask.id);
+      if (existingPhysics) {
+        // Keep physics properties, update other properties
+        return { ...storeTask, x: existingPhysics.x, y: existingPhysics.y, vx: existingPhysics.vx, vy: existingPhysics.vy };
+      } else {
+        // New task, use the properties from store (which already has random x, y, etc.)
+        return storeTask;
+      }
     });
+
+    physicsStateRef.current = updatedPhysicsState;
+    physicsMapRef.current = new Map(updatedPhysicsState.map(t => [t.id, t]));
   }, [tasks]);
 
   useEffect(() => {
@@ -159,17 +144,21 @@ export default function Home() {
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
   }, [draggedTask]);
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     const container = containerRef.current;
     const width = container ? container.getBoundingClientRect().width : 800;
-    const newTask = createTask(newTaskTitle, Math.random() * (width - TASK_CREATION.PADDING) + TASK_CREATION.OFFSET);
-    physicsStateRef.current = [...physicsStateRef.current, newTask];
-    physicsMapRef.current.set(newTask.id, newTask);
-    setTasks(prev => [...prev, newTask]);
+    const x = Math.random() * (width - TASK_CREATION.PADDING) + TASK_CREATION.OFFSET;
+
+    const newTask = await createTaskAPI(newTaskTitle, x, newTaskDueDate || undefined);
+    if (newTask) {
+      physicsStateRef.current = [...physicsStateRef.current, newTask];
+      physicsMapRef.current.set(newTask.id, newTask);
+    }
+
     setNewTaskTitle('');
+    setNewTaskDueDate('');
     setShowAddDialog(false);
-    setIsMenuOpen(false);
   };
 
   const handleMouseDown = (e: React.MouseEvent, taskId: string) => {
@@ -255,15 +244,19 @@ export default function Home() {
               <div className="text-sm text-gray-500">Loading...</div>
             ) : session ? (
               <>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {session.user?.name || session.user?.email}
-                </span>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => setShowAddDialog(true)}
                   className="px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium"
                 >
-                  Sign Out
+                  Add Task
                 </button>
+                <button
+                  onClick={() => setShowArchive(true)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium"
+                >
+                  Archive
+                </button>
+                <UserAvatar user={session.user} />
               </>
             ) : (
               <>
@@ -279,13 +272,6 @@ export default function Home() {
                 </Link>
               </>
             )}
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <div className="w-6 h-5 flex flex-col justify-between">
-                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-                <span className="block h-0.5 w-full bg-gray-800 dark:bg-gray-200"></span>
-              </div>
-            </button>
           </div>
         </div>
       </header>
@@ -308,17 +294,6 @@ export default function Home() {
       <div className="absolute top-0 bottom-0 pointer-events-none" style={{ right: '10%' }}>
         <div className="border-r-2 border-dashed border-blue-300/40 h-full"></div>
       </div>
-
-
-      {isMenuOpen && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-20 right-6 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-            <button onClick={() => { setShowAddDialog(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700">Add Task</button>
-            <button onClick={() => { setShowArchive(true); setIsMenuOpen(false); }} className="block w-full px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700">Archive</button>
-          </div>
-        </>
-      )}
 
       <div ref={containerRef} className="absolute inset-0" onMouseMove={handleMouseMove} onMouseUp={() => { setDraggedTask(null); setMouseDownInfo(null); }} onClick={(e) => { if (e.target === e.currentTarget) { handleBackgroundClick(e); } }}>
         {ripples.map(ripple => (
@@ -345,19 +320,31 @@ export default function Home() {
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddDialog(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 text-lg font-semibold">Add New Task</div>
+            <div className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Add New Task</div>
             <input
               type="text"
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               placeholder="Enter task title"
-              className="w-full border rounded px-3 py-2 mb-4 dark:bg-gray-700 dark:border-gray-600"
-              onKeyDown={(e) => e.key === 'Enter' && addTask()}
+              className="w-full border rounded px-3 py-2 mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addTask()}
               autoFocus
             />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Due Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={newTaskDueDate}
+                onChange={(e) => setNewTaskDueDate(e.target.value)}
+                className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
             <div className="flex gap-2">
-              <button onClick={addTask} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Create</button>
-              <button onClick={() => { setShowAddDialog(false); setNewTaskTitle(''); }} className="flex-1 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+              <button onClick={addTask} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">Create</button>
+              <button onClick={() => { setShowAddDialog(false); setNewTaskTitle(''); setNewTaskDueDate(''); }} className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancel</button>
             </div>
           </div>
         </div>

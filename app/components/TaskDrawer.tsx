@@ -10,6 +10,8 @@ export default function TaskDrawer() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [newMilestone, setNewMilestone] = useState('');
+  const [isEditingDueDate, setIsEditingDueDate] = useState(false);
+  const [editedDueDate, setEditedDueDate] = useState('');
 
   const handleTitleClick = () => {
     setEditedTitle(selectedTask?.title || '');
@@ -56,6 +58,44 @@ export default function TaskDrawer() {
       updateTask(selectedTask.id, { progress: PROGRESS.COMPLETE });
       setSelectedTask(null);
     }
+  };
+
+  const handleDueDateClick = () => {
+    const dueDateValue = selectedTask?.dueDate
+      ? new Date(selectedTask.dueDate).toISOString().split('T')[0]
+      : '';
+    setEditedDueDate(dueDateValue);
+    setIsEditingDueDate(true);
+  };
+
+  const handleDueDateSave = () => {
+    if (selectedTask) {
+      updateTask(selectedTask.id, { dueDate: editedDueDate || null });
+    }
+    setIsEditingDueDate(false);
+  };
+
+  const formatDueDate = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let color = 'text-gray-600 dark:text-gray-400';
+    if (diffDays < 0) {
+      color = 'text-red-600 dark:text-red-400'; // Overdue
+    } else if (diffDays <= 3) {
+      color = 'text-orange-600 dark:text-orange-400'; // Due soon
+    }
+
+    return (
+      <span className={color}>
+        {date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+        {diffDays < 0 && ' (Overdue)'}
+        {diffDays >= 0 && diffDays <= 3 && ` (${diffDays} day${diffDays !== 1 ? 's' : ''} left)`}
+      </span>
+    );
   };
 
   return (
@@ -113,9 +153,49 @@ export default function TaskDrawer() {
                 </svg>
               </button>
             </div>
-            <div className="px-6 pb-4 text-xs text-gray-500 dark:text-gray-400">
-              Created at {new Date(selectedTask.createdAt).toLocaleString('en-US')}
+            <div className="px-6 space-y-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Created at {new Date(selectedTask.createdAt).toLocaleString('en-US')}
+              </div>
+              <div className="text-xs">
+                {isEditingDueDate ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={editedDueDate}
+                      onChange={(e) => setEditedDueDate(e.target.value)}
+                      onBlur={handleDueDateSave}
+                      onKeyDown={(e) => e.key === 'Enter' && handleDueDateSave()}
+                      className="text-xs bg-white dark:bg-gray-700 border border-blue-500 rounded px-2 py-1"
+                      min={new Date().toISOString().split('T')[0]}
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleDueDateSave}
+                      className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : selectedTask.dueDate ? (
+                  <div
+                    onClick={handleDueDateClick}
+                    className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1"
+                  >
+                    <span className="text-gray-500 dark:text-gray-400">Due:</span>
+                    {formatDueDate(selectedTask.dueDate)}
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleDueDateClick}
+                    className="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    + Add due date
+                  </button>
+                )}
+              </div>
             </div>
+            <div className="pb-4"></div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">

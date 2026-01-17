@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, primaryKey, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, primaryKey, integer, boolean, real, index } from 'drizzle-orm/pg-core';
 import type { AdapterAccount } from '@auth/core/adapters';
 
 // Users table
@@ -55,5 +55,71 @@ export const verificationTokens = pgTable(
   },
   (vt) => ({
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
+  })
+);
+
+// Tasks table
+export const tasks = pgTable(
+  'task',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Task information
+    title: text('title').notNull(),
+    description: text('description'),
+
+    // Scheduling
+    dueDate: timestamp('dueDate', { mode: 'date' }),
+
+    // Organization
+    priority: text('priority'), // 'low' | 'medium' | 'high'
+    tags: text('tags').array(), // Array of tags
+
+    // Progress
+    progress: integer('progress').notNull().default(0), // 0-100
+    archived: boolean('archived').notNull().default(false),
+
+    // // Ocean Ball visual properties
+    // color: text('color').notNull(),
+    // density: real('density').notNull(), // 0-1, controls vertical position
+
+    // Timestamps
+    createAt: timestamp('createDate', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+    completedAt: timestamp('completedAt', { mode: 'date' }),
+  },
+  (table) => ({
+    userIdIdx: index('task_user_id_idx').on(table.userId),
+    archivedIdx: index('task_archived_idx').on(table.archived),
+    dueDateIdx: index('task_due_date_idx').on(table.dueDate),
+  })
+);
+
+// Milestones table
+export const milestones = pgTable(
+  'milestone',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    taskId: text('taskId')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+
+    // Milestone information
+    title: text('title').notNull(),
+    description: text('description'),
+
+    // Status
+    order: integer('order').notNull(), // For sorting milestones
+    completed: boolean('completed').notNull().default(false),
+
+    // Timestamps
+    createAt: timestamp('createDate', { mode: 'date' }).notNull().defaultNow(),
+    completedAt: timestamp('completedAt', { mode: 'date' }),
+  },
+  (table) => ({
+    taskIdIdx: index('milestone_task_id_idx').on(table.taskId),
   })
 );
