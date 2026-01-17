@@ -9,7 +9,7 @@ export interface Task {
   vy: number;
   radius: number;
   progress: number;
-  milestones: { text: string; completed: boolean }[];
+  milestones: { id?: string; text: string; completed: boolean }[]; // 添加 id 字段（可选，用于 API 操作）
   color: string;
   title: string;
   density: number;
@@ -29,11 +29,12 @@ export function apiTaskToTask(apiTask: ApiTask, screenWidth: number = 1200): Tas
   const rightBound = screenWidth * BOUNDS.RIGHT;
   const effectiveWidth = rightBound - leftBound;
 
-  // Generate random physics properties
-  const density = BOUNDS.TOP + Math.random() * (BOUNDS.BOTTOM - BOUNDS.TOP);
+  // Use stored color and density from database
+  const density = apiTask.density;
+  const color = apiTask.color;
+
   const radius = BALL.RADIUS * (DENSITY.MIN_MULTIPLIER + density * DENSITY.RANGE_MULTIPLIER);
   const x = leftBound + Math.random() * effectiveWidth;
-  const color = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
 
   return {
     id: apiTask.id,

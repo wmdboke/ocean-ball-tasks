@@ -29,6 +29,8 @@ class TaskAPI {
     dueDate?: string;
     priority?: string;
     tags?: string[];
+    color: string;
+    density: number;
   }): Promise<ApiTask> {
     return this.fetchWithAuth('/api/tasks', {
       method: 'POST',
@@ -47,6 +49,8 @@ class TaskAPI {
       progress: number;
       archived: boolean;
       completedAt: string;
+      color: string;
+      density: number;
     }>
   ): Promise<ApiTask> {
     return this.fetchWithAuth(`/api/tasks/${id}`, {

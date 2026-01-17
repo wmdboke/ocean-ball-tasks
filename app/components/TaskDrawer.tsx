@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useTaskStore } from '../store/taskStore';
+import { taskAPI } from '../services/taskAPI';
 import { PROGRESS } from '../constants';
-import { calculateProgress } from '../utils/progressUtils';
 
 export default function TaskDrawer() {
   const { selectedTask, setSelectedTask, updateTask } = useTaskStore();
@@ -12,6 +12,12 @@ export default function TaskDrawer() {
   const [newMilestone, setNewMilestone] = useState('');
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [editedDueDate, setEditedDueDate] = useState('');
+
+  const calculateProgress = (milestones: { text: string; completed: boolean }[]) => {
+    if (milestones.length === 0) return 0;
+    const completedCount = milestones.filter(m => m.completed).length;
+    return Math.round((completedCount / milestones.length) * 100);
+  };
 
   const handleTitleClick = () => {
     setEditedTitle(selectedTask?.title || '');
@@ -25,31 +31,79 @@ export default function TaskDrawer() {
     setIsEditingTitle(false);
   };
 
-  const handleAddMilestone = () => {
-    if (selectedTask && newMilestone.trim()) {
-      const updatedMilestones = [...selectedTask.milestones, { text: newMilestone.trim(), completed: false }];
-      const progress = calculateProgress(updatedMilestones);
-      updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
+  const handleAddMilestone = async () => {
+    if (!selectedTask || !newMilestone.trim()) return;
+
+    try {
+      // 1. 先调用 API 创建 milestone
+      const created = await taskAPI.createMilestone({
+        taskId: selectedTask.id,
+        title: newMilestone.trim(),
+      });
+
+      // 2. API 成功后，更新缓存中的 milestones
+      const updatedMilestones = [
+        ...selectedTask.milestones,
+        { id: created.id, text: created.title, completed: created.completed }
+      ];
+
+      // 3. 计算新进度并更新 task
+      const newProgress = calculateProgress(updatedMilestones);
+      await updateTask(selectedTask.id, {
+        milestones: updatedMilestones,
+        progress: newProgress,
+      });
+
       setNewMilestone('');
+    } catch (error) {
+      console.error('Failed to add milestone:', error);
     }
   };
 
-  const toggleMilestone = (index: number) => {
-    if (selectedTask) {
-      const updatedMilestones = selectedTask.milestones.map((m, i) =>
-        i === index ? { ...m, completed: !m.completed } : m
+  const toggleMilestone = async (milestone: { id?: string; text: string; completed: boolean }) => {
+    if (!selectedTask || !milestone.id) return;
+
+    try {
+      // 1. 先调用 API 更新 milestone
+      await taskAPI.updateMilestone(milestone.id, {
+        completed: !milestone.completed,
+      });
+
+      // 2. API 成功后，更新缓存中的 milestones
+      const updatedMilestones = selectedTask.milestones.map(m =>
+        m.id === milestone.id ? { ...m, completed: !m.completed } : m
       );
-      const progress = calculateProgress(updatedMilestones);
-      updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
+
+      // 3. 计算新进度并更新 task
+      const newProgress = calculateProgress(updatedMilestones);
+      await updateTask(selectedTask.id, {
+        milestones: updatedMilestones,
+        progress: newProgress,
+      });
+    } catch (error) {
+      console.error('Failed to toggle milestone:', error);
     }
   };
 
-  const deleteMilestone = (index: number, e: React.MouseEvent) => {
+  const deleteMilestone = async (milestoneId: string | undefined, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (selectedTask) {
-      const updatedMilestones = selectedTask.milestones.filter((_, i) => i !== index);
-      const progress = calculateProgress(updatedMilestones);
-      updateTask(selectedTask.id, { milestones: updatedMilestones, progress });
+    if (!selectedTask || !milestoneId) return;
+
+    try {
+      // 1. 先调用 API 删除 milestone
+      await taskAPI.deleteMilestone(milestoneId);
+
+      // 2. API 成功后，更新缓存中的 milestones
+      const updatedMilestones = selectedTask.milestones.filter(m => m.id !== milestoneId);
+
+      // 3. 计算新进度并更新 task
+      const newProgress = calculateProgress(updatedMilestones);
+      await updateTask(selectedTask.id, {
+        milestones: updatedMilestones,
+        progress: newProgress,
+      });
+    } catch (error) {
+      console.error('Failed to delete milestone:', error);
     }
   };
 
@@ -229,16 +283,26 @@ export default function TaskDrawer() {
                   Milestones ({selectedTask.milestones.filter(m => m.completed).length}/{selectedTask.milestones.length})
                 </h3>
                 <div className="space-y-3 mb-4">
-                  {selectedTask.milestones.map((milestone, idx) => (
-                    <div key={idx} className="flex items-start gap-3 group hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors">
-                      <div className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${milestone.completed ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} onClick={() => toggleMilestone(idx)}>
+                  {selectedTask.milestones.map((milestone) => (
+                    <div key={milestone.id} className="flex items-start gap-3 group hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors">
+                      <div
+                        className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${
+                          milestone.completed ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                        onClick={() => toggleMilestone(milestone)}
+                      >
                         {milestone.completed && <span className="text-white text-xs">✓</span>}
                       </div>
-                      <span className={`text-sm flex-1 cursor-pointer ${milestone.completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`} onClick={() => toggleMilestone(idx)}>
+                      <span
+                        className={`text-sm flex-1 cursor-pointer ${
+                          milestone.completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'
+                        }`}
+                        onClick={() => toggleMilestone(milestone)}
+                      >
                         {milestone.text}
                       </span>
                       <button
-                        onClick={(e) => deleteMilestone(idx, e)}
+                        onClick={(e) => deleteMilestone(milestone.id, e)}
                         className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-sm"
                       >
                         ×
@@ -272,3 +336,4 @@ export default function TaskDrawer() {
     </>
   );
 }
+

@@ -10,7 +10,7 @@ import { UserAvatar } from './components/UserAvatar';
 import { useDateTime } from './hooks/useDateTime';
 import { useTaskStore } from './store/taskStore';
 import { Task, createTask, createDefaultTasks } from './utils/taskUtils';
-import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS } from './constants';
+import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS, VISUAL_BOUNDS, FLOAT_BOUNDS } from './constants';
 import { SpatialGrid } from './utils/spatialGrid';
 
 export default function Home() {
@@ -68,7 +68,16 @@ export default function Home() {
         if (draggedTask === task.id) return task;
 
         let { x, y, vx, vy } = task;
-        const targetY = bounds.height * task.density;
+
+        // 计算浮动范围：从上边界到下边界
+        const floatRangeTop = VISUAL_BOUNDS.TOP + FLOAT_BOUNDS.TOP_OFFSET;
+        const floatRangeBottom = bounds.height - VISUAL_BOUNDS.BOTTOM - FLOAT_BOUNDS.BOTTOM_OFFSET;
+        const floatRangeHeight = floatRangeBottom - floatRangeTop;
+
+        // 将 density (0.15-0.8) 映射到浮动范围内的目标位置
+        const normalizedDensity = (task.density - BOUNDS.TOP) / (BOUNDS.BOTTOM - BOUNDS.TOP);
+        const targetY = floatRangeTop + normalizedDensity * floatRangeHeight;
+
         const restoreForce = -(y - targetY) * PHYSICS.RESTORE_FORCE;
 
         vy += restoreForce;
@@ -79,8 +88,8 @@ export default function Home() {
 
         const leftBound = bounds.width * BOUNDS.LEFT;
         const rightBound = bounds.width * BOUNDS.RIGHT;
-        const topBound = 72;
-        const bottomBound = bounds.height - 64;
+        const topBound = VISUAL_BOUNDS.TOP + FLOAT_BOUNDS.TOP_OFFSET;
+        const bottomBound = bounds.height - VISUAL_BOUNDS.BOTTOM - FLOAT_BOUNDS.BOTTOM_OFFSET;
 
         if (x - task.radius < leftBound) { x = leftBound + task.radius; vx = Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
         if (x + task.radius > rightBound) { x = rightBound - task.radius; vx = -Math.abs(vx) * PHYSICS.BOUNCE_DAMPING; }
@@ -282,16 +291,16 @@ export default function Home() {
       </div>
 
       {/* Boundary lines */}
-      <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '72px' }}>
+      <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${VISUAL_BOUNDS.TOP}px` }}>
         <div className="border-t-2 border-dashed border-blue-300/40"></div>
       </div>
-      <div className="absolute left-0 right-0 pointer-events-none" style={{ bottom: '64px' }}>
+      <div className="absolute left-0 right-0 pointer-events-none" style={{ bottom: `${VISUAL_BOUNDS.BOTTOM}px` }}>
         <div className="border-t-2 border-dashed border-blue-300/40"></div>
       </div>
-      <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: '10%' }}>
+      <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${VISUAL_BOUNDS.LEFT * 100}%` }}>
         <div className="border-l-2 border-dashed border-blue-300/40 h-full"></div>
       </div>
-      <div className="absolute top-0 bottom-0 pointer-events-none" style={{ right: '10%' }}>
+      <div className="absolute top-0 bottom-0 pointer-events-none" style={{ right: `${(1 - VISUAL_BOUNDS.RIGHT) * 100}%` }}>
         <div className="border-r-2 border-dashed border-blue-300/40 h-full"></div>
       </div>
 

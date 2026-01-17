@@ -9,6 +9,13 @@ interface ArchiveListProps {
 export default function ArchiveList({ onClose }: ArchiveListProps) {
   const archivedTasks = useTaskStore((s) => s.archivedTasks);
 
+  // Sort by completedAt in descending order (newest first)
+  const sortedArchivedTasks = [...archivedTasks].sort((a, b) => {
+    if (!a.completedAt) return 1;
+    if (!b.completedAt) return -1;
+    return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+  });
+
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
@@ -22,11 +29,11 @@ export default function ArchiveList({ onClose }: ArchiveListProps) {
           </button>
         </div>
 
-        {archivedTasks.length === 0 ? (
+        {sortedArchivedTasks.length === 0 ? (
           <div className="text-center text-gray-500 py-8">No archived tasks</div>
         ) : (
           <div className="space-y-3">
-            {archivedTasks.map((task) => (
+            {sortedArchivedTasks.map((task) => (
               <div key={task.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"

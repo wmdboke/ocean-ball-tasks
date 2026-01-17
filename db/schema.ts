@@ -82,9 +82,9 @@ export const tasks = pgTable(
     progress: integer('progress').notNull().default(0), // 0-100
     archived: boolean('archived').notNull().default(false),
 
-    // // Ocean Ball visual properties
-    // color: text('color').notNull(),
-    // density: real('density').notNull(), // 0-1, controls vertical position
+    // Ocean Ball visual properties
+    color: text('color').notNull(),
+    density: real('density').notNull(), // 0-1, controls vertical position
 
     // Timestamps
     createAt: timestamp('createDate', { mode: 'date' }).notNull().defaultNow(),

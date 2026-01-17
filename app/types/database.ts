@@ -9,6 +9,8 @@ export interface DbTask {
   tags: string[] | null;
   progress: number;
   archived: boolean;
+  color: string;
+  density: number;
   createAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
@@ -32,6 +34,7 @@ export interface ApiTask extends Omit<DbTask, 'createAt' | 'updatedAt' | 'comple
   updatedAt: string;
   completedAt: string | null;
   dueDate: string | null;
+  milestones?: ApiMilestone[]; // API 返回时包含 milestones
 }
 
 export interface ApiMilestone extends Omit<DbMilestone, 'createAt' | 'completedAt'> {

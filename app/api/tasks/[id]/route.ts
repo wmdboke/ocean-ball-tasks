@@ -50,7 +50,7 @@ export async function PATCH(
     const { id } = await params;
 
     const body = await request.json();
-    const { title, description, dueDate, priority, tags, progress, archived, completedAt } = body;
+    const { title, description, dueDate, priority, tags, progress, archived, completedAt, color, density } = body;
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -72,6 +72,8 @@ export async function PATCH(
     }
     if (archived !== undefined) updateData.archived = archived;
     if (completedAt !== undefined) updateData.completedAt = completedAt ? new Date(completedAt) : null;
+    if (color !== undefined) updateData.color = color;
+    if (density !== undefined) updateData.density = density;
 
     const updatedTask = await db
       .update(tasks)
