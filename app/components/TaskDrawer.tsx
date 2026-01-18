@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { taskAPI } from '../services/taskAPI';
 import { PROGRESS } from '../constants';
 import { Task } from '../utils/taskUtils';
@@ -61,7 +62,7 @@ export default function TaskDrawer({ selectedTask, setSelectedTask, updateTask }
 
       setNewMilestone('');
     } catch (error) {
-      console.error('Failed to add milestone:', error);
+      toast.error('Failed to add milestone');
     }
   };
 
@@ -86,7 +87,7 @@ export default function TaskDrawer({ selectedTask, setSelectedTask, updateTask }
         progress: newProgress,
       });
     } catch (error) {
-      console.error('Failed to toggle milestone:', error);
+      toast.error('Failed to toggle milestone');
     }
   };
 
@@ -108,7 +109,7 @@ export default function TaskDrawer({ selectedTask, setSelectedTask, updateTask }
         progress: newProgress,
       });
     } catch (error) {
-      console.error('Failed to delete milestone:', error);
+      toast.error('Failed to delete milestone');
     }
   };
 

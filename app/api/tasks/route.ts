@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { tasks, milestones } from '@/db/schema';
 import { eq, and, inArray, asc } from 'drizzle-orm';
+import { DbMilestone } from '@/app/types/database';
 
 // GET /api/tasks - Get all tasks with their milestones for the authenticated user
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
       .where(eq(tasks.userId, session.user.id));
 
     // 2. 如果有 tasks，批量查询所有 milestones
-    let allMilestones: any[] = [];
+    let allMilestones: DbMilestone[] = [];
     if (userTasks.length > 0) {
       const taskIds = userTasks.map(t => t.id);
       allMilestones = await db

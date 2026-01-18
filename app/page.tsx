@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 import OceanBall from './components/OceanBall';
 import TaskDrawer from './components/TaskDrawer';
 import ArchiveList from './components/ArchiveList';
@@ -10,6 +11,7 @@ import { UserAvatar } from './components/UserAvatar';
 import { useDateTime } from './hooks/useDateTime';
 import { Task, apiTaskToTask } from './utils/taskUtils';
 import { taskAPI } from './services/taskAPI';
+import { ApiMilestone } from './types/database';
 import { PHYSICS, RIPPLE, CLICK_THRESHOLD, RENDER, TASK_CREATION, PROGRESS, BOUNDS, VISUAL_BOUNDS, FLOAT_BOUNDS, BALL_COLORS } from './constants';
 import { SpatialGrid } from './utils/spatialGrid';
 
@@ -40,7 +42,21 @@ export default function Home() {
   const physicsMapRef = useRef<Map<string, Task>>(new Map());
   const [, forceUpdate] = useState({});
 
-  // 加载所有任务（登录时调用）
+  // 定义任务更新的 API payload 类型
+  interface TaskUpdatePayload {
+    title?: string;
+    description?: string | null;
+    dueDate?: string | null;
+    priority?: string | null;
+    tags?: string[];
+    progress?: number;
+    archived?: boolean;
+    color?: string;
+    density?: number;
+    completedAt?: string;
+  }
+
+  // 加载所有任务(登录时调用)
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -50,7 +66,7 @@ export default function Home() {
 
       const allTasks = apiTasks.map((apiTask) => {
         const task = apiTaskToTask(apiTask, screenWidth);
-        task.milestones = (apiTask.milestones || []).map((m: any) => ({
+        task.milestones = (apiTask.milestones || []).map((m: ApiMilestone) => ({
           id: m.id,
           text: m.title,
           completed: m.completed,
@@ -65,7 +81,7 @@ export default function Home() {
       setArchivedTasks(archived);
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      toast.error('Failed to load tasks');
       setError((error as Error).message);
       setIsLoading(false);
     }
@@ -78,7 +94,7 @@ export default function Home() {
 
     try {
       // 准备 API 更新数据
-      const apiUpdates: any = {};
+      const apiUpdates: TaskUpdatePayload = {};
       if (updates.title !== undefined) apiUpdates.title = updates.title;
       if (updates.description !== undefined) apiUpdates.description = updates.description;
       if (updates.dueDate !== undefined) apiUpdates.dueDate = updates.dueDate;
@@ -113,7 +129,7 @@ export default function Home() {
 
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to update task:', error);
+      toast.error('Failed to update task');
       setError((error as Error).message);
       setIsLoading(false);
     }
@@ -137,7 +153,7 @@ export default function Home() {
       await loadTasks();
       return null;
     } catch (error) {
-      console.error('Failed to create task:', error);
+      toast.error('Failed to create task');
       setError((error as Error).message);
       setIsLoading(false);
       return null;
@@ -153,7 +169,7 @@ export default function Home() {
       await taskAPI.deleteTask(taskId);
       await loadTasks();
     } catch (error) {
-      console.error('Failed to delete task:', error);
+      toast.error('Failed to delete task');
       setError((error as Error).message);
       setIsLoading(false);
     }

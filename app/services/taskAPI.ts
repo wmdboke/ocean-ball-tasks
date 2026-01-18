@@ -42,9 +42,9 @@ class TaskAPI {
     id: string,
     data: Partial<{
       title: string;
-      description: string;
-      dueDate: string;
-      priority: string;
+      description: string | null;
+      dueDate: string | null;
+      priority: string | null;
       tags: string[];
       progress: number;
       archived: boolean;
